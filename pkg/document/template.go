@@ -2742,29 +2742,38 @@ func (te *TemplateEngine) renderImages(content string, images map[string]*Templa
 }
 
 // processImagePlaceholders 处理文档中的图片占位符
+// 注意：不能在 range 遍历 doc.Body.Elements 的同时原地修改该切片，
+// 否则会导致后续元素索引错位，出现“第一张图片正常、第二张仍是占位符文本”的问题。
+// 这里采用安全做法：遍历时把结果收集到 newElements，最后一次性赋回。
 func (te *TemplateEngine) processImagePlaceholders(doc *Document, data *TemplateData) error {
-	// 遍历文档元素，查找并替换图片占位符
-	for i, element := range doc.Body.Elements {
+	elements := doc.Body.Elements
+	newElements := make([]interface{}, 0, len(elements))
+
+	for _, element := range elements {
 		switch elem := element.(type) {
 		case *Paragraph:
-			// 检查段落是否包含图片占位符
-			newElements, err := te.processImagePlaceholdersInParagraph(elem, data, doc)
+			replaced, err := te.processImagePlaceholdersInParagraph(elem, data, doc)
 			if err != nil {
 				return err
 			}
-
-			// 如果有图片替换，更新文档元素
-			if len(newElements) > 1 || (len(newElements) == 1 && newElements[0] != elem) {
-				// 移除原段落，插入新元素（可能包含图片段落）
-				doc.Body.Elements = append(doc.Body.Elements[:i], append(newElements, doc.Body.Elements[i+1:]...)...)
+			if len(replaced) == 0 {
+				// 理论上不会发生，但防御性处理：保留原段落
+				newElements = append(newElements, elem)
+				continue
 			}
+			newElements = append(newElements, replaced...)
 		case *Table:
 			// 处理表格中的图片占位符 (Fix for Issue #91)
 			if err := te.processImagePlaceholdersInTable(elem, data, doc); err != nil {
 				return err
 			}
+			newElements = append(newElements, elem)
+		default:
+			newElements = append(newElements, element)
 		}
 	}
+
+	doc.Body.Elements = newElements
 	return nil
 }
 
