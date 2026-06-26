@@ -3,7 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/zerx-lab/wordZero/pkg/markdown"
+	"github.com/hiyali/wordZero/pkg/markdown"
 )
 
 // TestMarkdownTableConversion 测试Markdown表格转换

@@ -1102,6 +1102,11 @@ func (te *TemplateEngine) cloneParagraphProperties(source *ParagraphProperties) 
 		}
 	}
 
+	// 复制段落内的分节节属性（特别提示：上方的 w:sectPr 等）
+	if source.SectPr != nil {
+		props.SectPr = te.cloneSectionProperties(source.SectPr)
+	}
+
 	return props
 }
 
@@ -1110,6 +1115,12 @@ func (te *TemplateEngine) cloneRun(source *Run) Run {
 	newRun := Run{
 		Properties: te.cloneRunProperties(source.Properties),
 		Text:       Text{Content: source.Text.Content, Space: source.Text.Space},
+	}
+
+	// 分页/换行（与 postprocess_pagebreak、Word 原版 Command+Enter 一致）
+	if source.Break != nil {
+		br := *source.Break
+		newRun.Break = &br
 	}
 
 	// 复制图像（如果有）

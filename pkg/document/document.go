@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/zerx-lab/wordZero/pkg/style"
+	"github.com/hiyali/wordZero/pkg/style"
 )
 
 // Document 表示一个Word文档
@@ -99,8 +99,10 @@ type Paragraph struct {
 }
 
 // ParagraphProperties 段落属性
+//
+// 不含 XMLName 字段：Paragraph.Properties 的 tag 已是 w:pPr，若此处再声明 XMLName 会与
+// encoding/xml 的类型检查冲突。序列化由 MarshalXML 负责，以正确输出 w:sectPr 等子元素。
 type ParagraphProperties struct {
-	XMLName             xml.Name             `xml:"w:pPr"`
 	ParagraphStyle      *ParagraphStyle      `xml:"w:pStyle,omitempty"`
 	NumberingProperties *NumberingProperties `xml:"w:numPr,omitempty"`
 	ParagraphBorder     *ParagraphBorder     `xml:"w:pBdr,omitempty"`
@@ -114,6 +116,79 @@ type ParagraphProperties struct {
 	PageBreakBefore     *PageBreakBefore     `xml:"w:pageBreakBefore,omitempty"` // 段前分页
 	WidowControl        *WidowControl        `xml:"w:widowControl,omitempty"`    // 孤行控制
 	OutlineLevel        *OutlineLevel        `xml:"w:outlineLvl,omitempty"`      // 大纲级别
+	// SectPr 段落内分节属性（常见于空段落后接「下一节」，与文档 body 末尾的 sectPr 不同）
+	SectPr *SectionProperties `xml:"w:sectPr,omitempty"`
+}
+
+const wordMLNs = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+// MarshalXML w:pPr 自定义序列化。
+// encoding/xml 在处理「外层为 w:pPr、子字段 SectPr 为 *SectionProperties（其自带 XMLName = w:sectPr）」
+// 时会产生名称/嵌套冲突，导致段落内 w:sectPr（如「特别提示」前的分节）在 marshal 时被丢掉。
+func (pp *ParagraphProperties) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if pp == nil {
+		return nil
+	}
+	name := start.Name
+	if name.Local == "" {
+		name = xml.Name{Space: wordMLNs, Local: "pPr"}
+	} else if name.Space == "" {
+		name.Space = wordMLNs
+	}
+	tok := xml.StartElement{Name: name, Attr: start.Attr}
+	if err := e.EncodeToken(tok); err != nil {
+		return err
+	}
+	emit := func(v any) error {
+		if v == nil {
+			return nil
+		}
+		return e.Encode(v)
+	}
+	// 顺序对齐 cloneParagraphProperties 与常见 Word 导出；段落内 sectPr 通常在最后。
+	if err := emit(pp.ParagraphStyle); err != nil {
+		return err
+	}
+	if err := emit(pp.NumberingProperties); err != nil {
+		return err
+	}
+	if err := emit(pp.ParagraphBorder); err != nil {
+		return err
+	}
+	if err := emit(pp.Tabs); err != nil {
+		return err
+	}
+	if err := emit(pp.SnapToGrid); err != nil {
+		return err
+	}
+	if err := emit(pp.Spacing); err != nil {
+		return err
+	}
+	if err := emit(pp.Indentation); err != nil {
+		return err
+	}
+	if err := emit(pp.Justification); err != nil {
+		return err
+	}
+	if err := emit(pp.KeepNext); err != nil {
+		return err
+	}
+	if err := emit(pp.KeepLines); err != nil {
+		return err
+	}
+	if err := emit(pp.PageBreakBefore); err != nil {
+		return err
+	}
+	if err := emit(pp.WidowControl); err != nil {
+		return err
+	}
+	if err := emit(pp.OutlineLevel); err != nil {
+		return err
+	}
+	if err := emit(pp.SectPr); err != nil {
+		return err
+	}
+	return e.EncodeToken(xml.EndElement{Name: tok.Name})
 }
 
 // SnapToGrid 网格对齐设置
@@ -2218,12 +2293,12 @@ func (d *Document) parseParagraphProperties(decoder *xml.Decoder, paragraph *Par
 				}
 				paragraph.Properties.NumberingProperties = numPr
 			case "sectPr":
-				// 一些文档将节属性存储在段落属性中
+				// 段落属性内的节属性（不能与文档级 setSectionProperties 混用）
 				sectPr, err := d.parseSectionProperties(decoder, t)
 				if err != nil {
 					return err
 				}
-				d.setSectionProperties(sectPr)
+				paragraph.Properties.SectPr = sectPr
 			default:
 				if err := d.skipElement(decoder, t.Name.Local); err != nil {
 					return err

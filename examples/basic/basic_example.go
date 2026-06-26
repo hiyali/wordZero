@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zerx-lab/wordZero/pkg/document"
-	"github.com/zerx-lab/wordZero/pkg/style"
+	"github.com/hiyali/wordZero/pkg/document"
+	"github.com/hiyali/wordZero/pkg/style"
 )
 
 func main() {
@@ -53,10 +53,10 @@ func main() {
 	codeTitle := doc.AddParagraph("代码示例")
 	codeTitle.SetStyle(style.StyleHeading3)
 
-	codeExample := `go get github.com/zerx-lab/wordZero
+	codeExample := `go get github.com/hiyali/wordZero
 
 // 使用示例
-import "github.com/zerx-lab/wordZero/pkg/document"
+import "github.com/hiyali/wordZero/pkg/document"
 
 doc := document.New()
 doc.AddParagraph("Hello, WordZero!")
