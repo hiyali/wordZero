@@ -926,6 +926,11 @@ func (te *TemplateEngine) cloneSectionProperties(source *SectionProperties) *Sec
 		XmlnsR: source.XmlnsR,
 	}
 
+	// 复制分节类型（continuous 等）
+	if source.Type != nil {
+		sectPr.Type = &SectType{Val: source.Type.Val}
+	}
+
 	// 复制页面尺寸
 	if source.PageSize != nil {
 		sectPr.PageSize = &PageSizeXML{
@@ -948,11 +953,16 @@ func (te *TemplateEngine) cloneSectionProperties(source *SectionProperties) *Sec
 		}
 	}
 
-	// 复制分栏设置
+	// 复制分栏设置（含 equalWidth 与各栏宽度）
 	if source.Columns != nil {
 		sectPr.Columns = &Columns{
-			Space: source.Columns.Space,
-			Num:   source.Columns.Num,
+			Space:      source.Columns.Space,
+			Num:        source.Columns.Num,
+			EqualWidth: source.Columns.EqualWidth,
+		}
+		if len(source.Columns.Col) > 0 {
+			sectPr.Columns.Col = make([]ColumnDef, len(source.Columns.Col))
+			copy(sectPr.Columns.Col, source.Columns.Col)
 		}
 	}
 

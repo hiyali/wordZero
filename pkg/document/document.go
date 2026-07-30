@@ -2811,6 +2811,18 @@ func (d *Document) parseSectionProperties(decoder *xml.Decoder, startElement xml
 		switch t := token.(type) {
 		case xml.StartElement:
 			switch t.Name.Local {
+			case "type":
+				// 分节类型：continuous 等；丢失会导致分栏区被当成「下一页分节」而分页
+				val := getAttributeValue(t.Attr, "val")
+				if val == "" {
+					val = getAttributeValue(t.Attr, "w:val")
+				}
+				if val != "" {
+					sectPr.Type = &SectType{Val: val}
+				}
+				if err := d.skipElement(decoder, t.Name.Local); err != nil {
+					return nil, err
+				}
 			case "pgSz":
 				// 解析页面尺寸
 				w := getAttributeValue(t.Attr, "w")
@@ -2837,14 +2849,13 @@ func (d *Document) parseSectionProperties(decoder *xml.Decoder, startElement xml
 					return nil, err
 				}
 			case "cols":
-				// 解析分栏
-				space := getAttributeValue(t.Attr, "space")
-				num := getAttributeValue(t.Attr, "num")
-				if space != "" || num != "" {
-					sectPr.Columns = &Columns{Space: space, Num: num}
-				}
-				if err := d.skipElement(decoder, t.Name.Local); err != nil {
+				// 解析分栏（含 equalWidth 与子 col 宽度，食品安全协议两栏签名区依赖此结构）
+				cols, err := d.parseColumns(decoder, t)
+				if err != nil {
 					return nil, err
+				}
+				if cols != nil {
+					sectPr.Columns = cols
 				}
 			case "docGrid":
 				// 解析文档网格
@@ -2904,6 +2915,43 @@ func (d *Document) parseSectionProperties(decoder *xml.Decoder, startElement xml
 		case xml.EndElement:
 			if t.Name.Local == "sectPr" {
 				return sectPr, nil
+			}
+		}
+	}
+}
+
+// parseColumns 解析 w:cols（含 equalWidth 与子元素 w:col）
+func (d *Document) parseColumns(decoder *xml.Decoder, startElement xml.StartElement) (*Columns, error) {
+	cols := &Columns{
+		Space:      getAttributeValue(startElement.Attr, "space"),
+		Num:        getAttributeValue(startElement.Attr, "num"),
+		EqualWidth: getAttributeValue(startElement.Attr, "equalWidth"),
+	}
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, WrapError("parse_columns", err)
+		}
+		switch t := token.(type) {
+		case xml.StartElement:
+			if t.Name.Local == "col" {
+				col := ColumnDef{
+					W:     getAttributeValue(t.Attr, "w"),
+					Space: getAttributeValue(t.Attr, "space"),
+				}
+				cols.Col = append(cols.Col, col)
+				if err := d.skipElement(decoder, t.Name.Local); err != nil {
+					return nil, err
+				}
+			} else if err := d.skipElement(decoder, t.Name.Local); err != nil {
+				return nil, err
+			}
+		case xml.EndElement:
+			if t.Name.Local == "cols" {
+				if cols.Space == "" && cols.Num == "" && cols.EqualWidth == "" && len(cols.Col) == 0 {
+					return nil, nil
+				}
+				return cols, nil
 			}
 		}
 	}

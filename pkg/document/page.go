@@ -60,6 +60,7 @@ var (
 type SectionProperties struct {
 	XMLName          xml.Name                 `xml:"w:sectPr"`
 	XmlnsR           string                   `xml:"xmlns:r,attr,omitempty"`
+	Type             *SectType                `xml:"w:type,omitempty"` // continuous / nextPage 等；丢失会导致分栏段被当成下页分节
 	PageSize         *PageSizeXML             `xml:"w:pgSz,omitempty"`
 	PageMargins      *PageMargin              `xml:"w:pgMar,omitempty"`
 	Columns          *Columns                 `xml:"w:cols,omitempty"`
@@ -70,12 +71,18 @@ type SectionProperties struct {
 	DocGrid          *DocGrid                 `xml:"w:docGrid,omitempty"`
 }
 
+// SectType 分节类型（w:type），如 continuous（连续分节，不分页）
+type SectType struct {
+	XMLName xml.Name `xml:"w:type"`
+	Val     string   `xml:"w:val,attr"`
+}
+
 // PageSizeXML 页面尺寸XML结构
 type PageSizeXML struct {
 	XMLName xml.Name `xml:"w:pgSz"`
-	W       string   `xml:"w:w,attr"`      // 页面宽度（twips）
-	H       string   `xml:"w:h,attr"`      // 页面高度（twips）
-	Orient  string   `xml:"w:orient,attr"` // 页面方向
+	W       string   `xml:"w:w,attr"`                // 页面宽度（twips）
+	H       string   `xml:"w:h,attr"`                // 页面高度（twips）
+	Orient  string   `xml:"w:orient,attr,omitempty"` // 页面方向；空则不写，避免 w:orient=""
 }
 
 // PageMargin 页面边距
@@ -90,11 +97,20 @@ type PageMargin struct {
 	Gutter  string   `xml:"w:gutter,attr"` // 装订线（twips）
 }
 
-// Columns 分栏设置
+// Columns 分栏设置（须保留 equalWidth 与子列 w:col，否则两栏签名区会丢列宽、版式塌成一列）
 type Columns struct {
-	XMLName xml.Name `xml:"w:cols"`
-	Space   string   `xml:"w:space,attr,omitempty"` // 栏间距
-	Num     string   `xml:"w:num,attr,omitempty"`   // 栏数
+	XMLName    xml.Name    `xml:"w:cols"`
+	Space      string      `xml:"w:space,attr,omitempty"`      // 栏间距（等宽时用）
+	Num        string      `xml:"w:num,attr,omitempty"`        // 栏数
+	EqualWidth string      `xml:"w:equalWidth,attr,omitempty"` // "0" 表示不等宽，使用子 col 宽度
+	Col        []ColumnDef `xml:"w:col,omitempty"`             // 各栏宽度定义
+}
+
+// ColumnDef 单栏宽度（twips）
+type ColumnDef struct {
+	XMLName xml.Name `xml:"w:col"`
+	W       string   `xml:"w:w,attr,omitempty"`
+	Space   string   `xml:"w:space,attr,omitempty"` // 与下一栏间距
 }
 
 // PageNumType 页码类型
