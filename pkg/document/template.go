@@ -1092,9 +1092,14 @@ func (te *TemplateEngine) cloneParagraphProperties(source *ParagraphProperties) 
 	// 复制缩进
 	if source.Indentation != nil {
 		props.Indentation = &Indentation{
-			FirstLine: source.Indentation.FirstLine,
-			Left:      source.Indentation.Left,
-			Right:     source.Indentation.Right,
+			FirstLine:      source.Indentation.FirstLine,
+			FirstLineChars: source.Indentation.FirstLineChars,
+			Left:           source.Indentation.Left,
+			LeftChars:      source.Indentation.LeftChars,
+			Right:          source.Indentation.Right,
+			RightChars:     source.Indentation.RightChars,
+			Hanging:        source.Indentation.Hanging,
+			HangingChars:   source.Indentation.HangingChars,
 		}
 	}
 

@@ -494,10 +494,15 @@ type SpacingConfig struct {
 
 // Indentation 缩进设置
 type Indentation struct {
-	XMLName   xml.Name `xml:"w:ind"`
-	FirstLine string   `xml:"w:firstLine,attr,omitempty"`
-	Left      string   `xml:"w:left,attr,omitempty"`
-	Right     string   `xml:"w:right,attr,omitempty"`
+	XMLName       xml.Name `xml:"w:ind"`
+	FirstLine     string   `xml:"w:firstLine,attr,omitempty"`
+	FirstLineChars string  `xml:"w:firstLineChars,attr,omitempty"`
+	Left          string   `xml:"w:left,attr,omitempty"`
+	LeftChars     string   `xml:"w:leftChars,attr,omitempty"`
+	Right         string   `xml:"w:right,attr,omitempty"`
+	RightChars    string   `xml:"w:rightChars,attr,omitempty"`
+	Hanging       string   `xml:"w:hanging,attr,omitempty"`
+	HangingChars  string   `xml:"w:hangingChars,attr,omitempty"`
 }
 
 // Tabs 制表符设置
@@ -2276,11 +2281,16 @@ func (d *Document) parseParagraphProperties(decoder *xml.Decoder, paragraph *Par
 					return err
 				}
 			case "ind":
-				// 缩进
+				// 缩进。hanging / *Chars 必须保留，否则封面「甲方」这类左缩进+悬挂缩进会在替换后整行右移。
 				indentation := &Indentation{}
 				indentation.FirstLine = getAttributeValue(t.Attr, "firstLine")
+				indentation.FirstLineChars = getAttributeValue(t.Attr, "firstLineChars")
 				indentation.Left = getAttributeValue(t.Attr, "left")
+				indentation.LeftChars = getAttributeValue(t.Attr, "leftChars")
 				indentation.Right = getAttributeValue(t.Attr, "right")
+				indentation.RightChars = getAttributeValue(t.Attr, "rightChars")
+				indentation.Hanging = getAttributeValue(t.Attr, "hanging")
+				indentation.HangingChars = getAttributeValue(t.Attr, "hangingChars")
 				paragraph.Properties.Indentation = indentation
 				if err := d.skipElement(decoder, t.Name.Local); err != nil {
 					return err
